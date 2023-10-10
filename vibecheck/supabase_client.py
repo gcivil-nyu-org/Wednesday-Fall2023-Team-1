@@ -1,0 +1,8 @@
+import supabase
+
+SUPABASE_URL = 'https://rndwvilajbirenkbpccu.supabase.co'
+
+#always remove API key before
+SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuZHd2aWxhamJpcmVua2JwY2N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTUzNDg3NjksImV4cCI6MjAxMDkyNDc2OX0.pDRxht8VqaEd3B9Pwrl3QVjPT8HgRekkeV533qgXY3s'
+
+supabase_client = supabase.Client(SUPABASE_URL, SUPABASE_KEY)
