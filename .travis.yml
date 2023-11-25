@@ -18,7 +18,7 @@ script:
   - black .
   - black --check .
   - flake8 .
-  - coverage run --source=chatroom,vibematch,login,static,templates,dashboard,vibecheck,user_profile,search manage.py test --no-input
+  - coverage run --source=login,static,dashboard,vibecheck manage.py test
 
 
 deploy:
@@ -32,4 +32,4 @@ deploy:
   bucket_path: "vcheck-app-1114b/"
   on:
     repo: gcivil-nyu-org/Wednesday-Fall2023-Team-1
-    branch: develop
+    branch: master

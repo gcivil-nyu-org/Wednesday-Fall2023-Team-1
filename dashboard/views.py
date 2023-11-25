@@ -14,9 +14,37 @@ from utils import get_spotify_token, vibe_calc_threads
 from django.http import JsonResponse
 from user_profile.models import Vibe, UserTop
 from django.utils import timezone
-from django.contrib import messages
+import spacy
 
-from .vibe_calc import calculate_vibe_async
+MAX_RETRIES = 2
+
+# Load spaCy language model from the deployed location
+nlp = spacy.load("dashboard/en_core_web_md/en_core_web_md-3.7.0")
+
+""" AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+
+
+s3 = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
+
+
+def load_model_from_s3():
+    with tempfile.NamedTemporaryFile() as tmp:
+        s3.download_file("vibecheck-storage", "cc.en.12.bin", tmp.name)
+        model = FastText.load_fasttext_format(tmp.name)
+    return model
+
+
+# Uncomment for loading from S3
+model = load_model_from_s3()"""
+
+
+# Uncomment for manual loading
+# model = FastText.load_fasttext_format("dashboard/cc.en.32.bin")
 
 
 def index(request):
@@ -26,6 +54,43 @@ def index(request):
     if token_info:
         # Initialize Spotipy with stored access token
         sp = spotipy.Spotify(auth=token_info["access_token"])
+
+        top_tracks = sp.current_user_top_tracks(limit=10, time_range="short_term")
+
+        # Extract seed tracks, artists, and genres
+        seed_tracks = [track["id"] for track in top_tracks["items"]]
+        recommendations = sp.recommendations(seed_tracks=seed_tracks[:4])
+
+        # EXTRA STUFF
+        # top_artists = sp.current_user_top_artists(limit=2)
+        # seed_artists = [artist['id'] for artist in top_artists['items']]
+        # seed_genres = list(set(genre for artist in top_artists['items'] for genre in artist['genres']))
+
+        tracks = []
+        for track in top_tracks["items"]:
+            tracks.append(
+                {
+                    "name": track["name"],
+                    "artists": ", ".join(
+                        [artist["name"] for artist in track["artists"]]
+                    ),
+                    "album": track["album"]["name"],
+                    "uri": track["uri"],
+                }
+            )
+
+        recommendedtracks = []
+        for track in recommendations["tracks"]:
+            recommendedtracks.append(
+                {
+                    "name": track["name"],
+                    "artists": ", ".join(
+                        [artist["name"] for artist in track["artists"]]
+                    ),
+                    "album": track["album"]["name"],
+                    "uri": track["uri"],
+                }
+            )
 
         # Pass username to navbar
         user_info = sp.current_user()
@@ -117,91 +182,22 @@ def index(request):
         return redirect("login:index")
 
 
-def get_top_tracks(sp):
-    top_tracks = sp.current_user_top_tracks(limit=10, time_range="short_term")
-    tracks = []
-    for track in top_tracks["items"]:
-        tracks.append(
-            {
-                "name": track["name"],
-                "id": track["id"],
-                "artists": ", ".join([artist["name"] for artist in track["artists"]]),
-                "album": track["album"]["name"],
-                "uri": track["uri"],
-                "large_album_cover": track["album"]["images"][0]["url"]
-                if len(track["album"]["images"]) >= 1
-                else None,
-                "medium_album_cover": track["album"]["images"][1]["url"]
-                if len(track["album"]["images"]) >= 2
-                else None,
-                "small_album_cover": track["album"]["images"][2]["url"]
-                if len(track["album"]["images"]) >= 3
-                else None,
-            }
-        )
-    return tracks
+def calculate_vibe(request):
+    token_info = get_spotify_token(request)
 
+    if token_info:
+        sp = spotipy.Spotify(auth=token_info["access_token"])
 
-def get_top_artist_and_genres(sp):
-    top_artists = sp.current_user_top_artists(limit=5, time_range="short_term")
-
-    user_top_artists = []
-    user_top_genres = set()  # Set to store unique genres
-
-    for artist in top_artists["items"]:
-        artist_info = {
-            "name": artist["name"],
-            "id": artist["id"],
-            "image_url": artist["images"][0]["url"] if artist["images"] else None,
-        }
-        user_top_artists.append(artist_info)
-        user_top_genres.update(artist["genres"])
-
-    return user_top_artists, list(user_top_genres)
-
-
-def get_recommendations(sp, top_tracks):
-    seed_tracks = [track["id"] for track in top_tracks[:5]]
-    recommendedtracks = []
-
-    try:
-        recommendations = sp.recommendations(seed_tracks=seed_tracks, limit=5)
-    except Exception:
-        # No tracks as seed to recommend
-        return recommendedtracks
-
-    for track in recommendations["tracks"]:
-        recommendedtracks.append(
-            {
-                "name": track["name"],
-                "id": track["id"],
-                "artists": ", ".join([artist["name"] for artist in track["artists"]]),
-                "album": track["album"]["name"],
-                "uri": track["uri"],
-                "large_album_cover": track["album"]["images"][0]["url"]
-                if len(track["album"]["images"]) >= 1
-                else None,
-                "medium_album_cover": track["album"]["images"][1]["url"]
-                if len(track["album"]["images"]) >= 2
-                else None,
-                "small_album_cover": track["album"]["images"][2]["url"]
-                if len(track["album"]["images"]) >= 3
-                else None,
-            }
-        )
-
-    return recommendedtracks
-
-
-def calculate_vibe(sp, midnight):
-    # Check if user vibe already been calculated for today
-    user_info = sp.current_user()
-    user_id = user_info["id"]
-    recent_vibe = Vibe.objects.filter(user_id=user_id, vibe_time__gte=midnight).first()
-
-    if recent_vibe:
-        return "already_loaded"
-    # If vibe today is already in database, RETURN, do not schedule vibe calculation
+        # Check if user vibe exists already for today
+        user_info = sp.current_user()
+        user_id = user_info["id"]
+        # current_time = timezone.now()
+        # time_difference = current_time - timezone.timedelta(hours=24)
+        # recent_vibe = Vibe.objects.filter(user_id=user_id, vibe_time__gte=time_difference).first()
+        # if recent_vibe:
+        #     vibe_result = recent_vibe.user_vibe
+        #     return JsonResponse({'result': vibe_result})
+        # Skips having to perform vibe calculations below
 
     recent_tracks = sp.current_user_recently_played(limit=15)
 
@@ -217,25 +213,30 @@ def calculate_vibe(sp, midnight):
             track_artists.append(track["track"]["artists"][0]["name"])
             track_ids.append(track["track"]["id"])
 
-        audio_features_list = sp.audio_features(track_ids)
+        # IF TESTING WITH TOP TRACKS INSTEAD OF RECENT
+        """ top_tracks = sp.current_user_top_tracks(limit=10, time_range='short_term')
+        for track in top_tracks['items']:
+            track_names.append(track['name'])
+            track_artists.append(track['artists'][0]['name'])
+            track_ids.append(track['id']) """
 
-        # Schedule asynchronous vibe calculation
-        # But first check if a thread is already running and calculating!
-        if user_id not in vibe_calc_threads:
-            vibe_thread = threading.Thread(
-                target=calculate_vibe_async,
-                args=(
-                    track_names,
-                    track_artists,
-                    track_ids,
-                    audio_features_list,
-                    user_id,
-                ),
+        if track_ids:
+            audio_features_list = sp.audio_features(track_ids)
+            vibe_result = check_vibe(
+                track_names, track_artists, track_ids, audio_features_list
             )
-            vibe_thread.start()
-            vibe_calc_threads[user_id] = vibe_thread
+            # Add user vibe to vibe database
+            time = timezone.now()
+            vibe_data = Vibe(user_id=user_id, user_vibe=vibe_result, vibe_time=time)
+            vibe_data.save()
+        else:
+            vibe_result = "Null"
 
-        return "asyn_started"
+        return JsonResponse({"result": vibe_result})
+    else:
+        # No token, redirect to login again
+        # ERROR MESSAGE HERE?
+        return redirect("login:index")
 
 
 def logout(request):
@@ -352,6 +353,59 @@ def get_task_status(request, midnight):
             return JsonResponse({"status": "PENDING"})
 
     else:
-        # No token, redirect to login again
-        messages.error(request, "Get_task_status failed, please try again later.")
-        return redirect("login:index")
+        emotions.append("Relaxed")
+
+    if loudness > -5:  # -5 dB is taken as a generic "loud" threshold
+        emotions.append("Intense")
+
+    return emotions
+
+
+""" def normalize(vector):
+    # Used for testing only for now
+    magnitude = np.linalg.norm(vector)
+    if magnitude == 0:
+        return vector
+    return vector / magnitude
+
+
+def find_closest_emotion(final_vibe, model):
+    emotion_words = [
+        "Happy", "Sad", "Angry", "Joyful", "Depressed", "Anxious", "Content",
+        "Excited", "Bored", "Nostalgic", "Frustrated", "Hopeful", "Afraid",
+        "Confident", "Jealous", "Grateful", "Lonely", "Overwhelmed", "Relaxed",
+        "Amused", "Curious", "Ashamed", "Sympathetic", "Disappointed", "Proud",
+        "Guilty", "Enthusiastic", "Empathetic", "Shocked", "Calm", "Inspired",
+        "Disgusted", "Indifferent", "Romantic", "Surprised", "Tense", "Euphoric",
+        "Melancholic", "Restless", "Serene", "Sensual"
+    ]
+    max_similarity = -1
+    closest_emotion = None
+    for word in emotion_words:
+        word_vec = get_vector(word, model)
+        similarity = cosine_similarity(final_vibe, word_vec)
+        if similarity > max_similarity:
+            max_similarity = similarity
+            closest_emotion = word
+    return closest_emotion
+
+
+def cosine_similarity(vec_a, vec_b):
+    return np.dot(vec_a, vec_b) / (np.linalg.norm(vec_a) * np.linalg.norm(vec_b)) """
+
+
+def spacy_vectorize(vibe, constrain):
+    vibe_string = " ".join(vibe)
+    in_vocab_vibes = [token.text for token in nlp(vibe_string) if not token.is_oov]
+    in_vocab_tokens = nlp(" ".join(in_vocab_vibes))
+
+    max_similarity = -1
+    closest_emotion = None
+
+    for word in constrain:
+        similarity = nlp(word).similarity(in_vocab_tokens)
+        if similarity > max_similarity:
+            max_similarity = similarity
+            closest_emotion = word
+
+    return closest_emotion
