@@ -11,11 +11,10 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+from dotenv import load_dotenv
 
-# from supabase import create_client, Client
-# SUPABASE_URL = 'https://rndwvilajbirenkbpccu.supabase.co'
-# SUPABASE_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJuZHd2aWxhamJpcmVua2JwY2N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTUzNDg3NjksImV4cCI6MjAxMDkyNDc2OX0.pDRxht8VqaEd3B9Pwrl3QVjPT8HgRekkeV533qgXY3s'
-# supabase: Client = create_client(SUPABASE_URL, SUPABASE_API_KEY)
+# Load variables from .env
+load_dotenv()
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,19 +30,20 @@ SECRET_KEY = "0%mn4bp$ofc*%rt)vo)1s!0=@e#$@ni^sa$okg2e1aw59j*skz"
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "vcheck-app-env.eba-eai754zm.us-west-2.elasticbeanstalk.com",
-    "vcheck-env-1014.eba-megnbk6g.us-west-2.elasticbeanstalk.com",
-    "127.0.0.1",
+    "*",
 ]
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "login",
     # "dashboard",
-    'dashboard.apps.DashboardConfig',
+    "dashboard.apps.DashboardConfig",
     "user_profile",
+    "chatroom",
+    "search",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -51,6 +51,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
+    "channels",
+    "vibematch",
+    "view_profile",
 ]
 
 MIDDLEWARE = [
@@ -80,9 +83,18 @@ TEMPLATES = [
         },
     },
 ]
-
 WSGI_APPLICATION = "vibecheck.wsgi.application"
+# Daphne
+ASGI_APPLICATION = "vibecheck.asgi.application"
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
@@ -90,11 +102,11 @@ WSGI_APPLICATION = "vibecheck.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": "postgres",
-        "USER": "postgres",
-        "PASSWORD": "team1vibecheck",
-        "HOST": "db.rndwvilajbirenkbpccu.supabase.co",
-        "PORT": "5432",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
     }
 }
 

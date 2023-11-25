@@ -6,16 +6,12 @@ import spotipy
 from utils import get_spotify_token
 from django.utils import timezone
 from .models import User, Vibe
-# import os
+from django.contrib import messages
 
 # Load variables from .env
 load_dotenv()
 
 # Create your views here.
-
-# url: str = os.getenv("SUPABASE_URL")
-# key: str = os.getenv("SUPABASE_KEY")
-# supabase: Client = create_client(url, key)
 
 
 def check_and_store_profile(request):
@@ -23,12 +19,13 @@ def check_and_store_profile(request):
 
     if token_info:
         sp = spotipy.Spotify(auth=token_info["access_token"])
-        user = vibe = None
 
         time = timezone.now()
 
         user_info = sp.current_user()
         user_id = user_info["id"]
+        # Pass username to navbar
+        username = user_info["display_name"]
         user_exists = User.objects.filter(user_id=user_id).first()
 
         if not user_exists:
@@ -44,8 +41,6 @@ def check_and_store_profile(request):
                 user_country=user_info["country"],
                 user_last_login=time,
             )
-            vibe = Vibe(user_id=user_id, user_vibe="happy", vibe_time=time)
-            vibe.save()
             user.save()
         else:
             user = user_exists
@@ -55,8 +50,8 @@ def check_and_store_profile(request):
             if user.total_followers != user_info["followers"]["total"]:
                 user.total_followers = user_info["followers"]["total"]
             new_profile_image_url = (
-                user_info["images"][0]["url"]
-                if ("images" in user_info and user_info["images"])
+                user_info["images"][1]["url"]
+                if ("images" in user_info and len(user_info["images"]) > 1)
                 else None
             )
             if user.profile_image_url != new_profile_image_url:
@@ -64,26 +59,36 @@ def check_and_store_profile(request):
             if user.user_country != user_info["country"]:
                 user.user_country = user_info["country"]
 
-            user.user_last_login = timezone.now()
-            vibe = Vibe(user_id=user_id, user_vibe="happy", vibe_time=time)
-            vibe.save()
+            user.user_last_login = time
             user.save()
 
+        # Get user's most recent vibe, order by descending time
+        recent_vibe = (
+            Vibe.objects.filter(user_id=user_id).order_by("-vibe_time").first()
+        )
+
         context = {
+            "username": username,
             "user": user,
-            "vibe": vibe,
+            "vibe": recent_vibe,
             "default_image_path": "user_profile/blank_user_profile_image.jpeg",
         }
         return render(request, "user_profile/user_profile.html", context)
     else:
         # No token, redirect to login again
-        # ERROR MESSAGE HERE?
+        messages.error(
+            request, "Check_and_store_profile failed, please try again later."
+        )
         return redirect("login:index")
 
 
 def update_user_profile(request, user_id):
     user = User.objects.filter(user_id=user_id).first()
-    context = {"user": user}
+    # Pass username to navbar
+    context = {
+        "username": user.username,
+        "user": user,
+    }
     return render(request, "user_profile/update_profile.html", context)
 
 

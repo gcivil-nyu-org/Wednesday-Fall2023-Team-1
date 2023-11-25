@@ -4,27 +4,32 @@ import pandas as pd
 from collections import Counter
 from django.apps import apps
 from dotenv import load_dotenv
-from decouple import config
+
+# from decouple import config
 
 # Load variables from .env
 load_dotenv()
 
 CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 
 # Comment the below line while working on your local machine
-# REDIRECT_URI = (
-#     "http://vcheck-env-1014.eba-megnbk6g.us-west-2.elasticbeanstalk.com/login/callback"
-# )
-
+"""
+REDIRECT_URI = (
+    "http://vcheck-app-env.eba-eai754zm.us-west-2.elasticbeanstalk.com/login/callback"
+)
+"""
 
 # Uncomment the below line while working on your local machine
-REDIRECT_URI = "http://127.0.0.1:8000/login/callback"
+# REDIRECT_URI = "http://127.0.0.1:8000/login/callback"
 
 SCOPE = "user-top-read user-read-recently-played user-read-private"
 sp_oauth = SpotifyOAuth(
     CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, scope=SCOPE, show_dialog=True
 )
+
+vibe_calc_threads = {}
 
 
 def get_spotify_token(request):
@@ -88,14 +93,14 @@ def deduce_audio_vibe(audio_features_list):
 
     # Define the mood dictionary
     mood_dict = {
-        0: "Happy",
-        1: "Sad",
-        2: "Energetic",
-        3: "Calm",
-        4: "Anxious",
-        5: "Cheerful",
-        6: "Gloomy",
-        7: "Content",
+        0: "happy",
+        1: "sad",
+        2: "energetic",
+        3: "calm",
+        4: "anxious",
+        5: "cheerful",
+        6: "gloomy",
+        7: "content",
     }
 
     # Predict the moods using the model

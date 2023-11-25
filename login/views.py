@@ -1,7 +1,5 @@
 from django.shortcuts import render, redirect
-from django.http import HttpResponse
-
-# from django.contrib.sessions.models import Session
+from django.contrib import messages
 from utils import sp_oauth
 
 # Create your views here.
@@ -23,5 +21,8 @@ def callback(request):
         request.session["token_info"] = token_info
         return redirect("dashboard:index")
     else:
-        # ERROR MESSAGE HERE?
-        return HttpResponse("Authorization error")
+        debug_info = f"Request: {request}"
+        messages.error(
+            request, f"Login failed, please try again later. Debug info: {debug_info}"
+        )
+        return redirect("login:index")

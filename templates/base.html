@@ -10,15 +10,35 @@
         {% load static %}
     <style>
         .background {
-            background-color: black;
+            background-color: #121212;
             font-family: 'Inter', sans-serif;
             color: white;
         }
 
+        .default-btn {
+            border-radius: 30px;
+        }
+
+        /* Set a fixed height for the carousel items on larger screens */
+        #topItemsCarousel .carousel-item {
+            height: 500px; /* Example height, adjust to fit the content */
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 768px) {
+            #topItemsCarousel .carousel-item {
+                height: auto; /* Height becomes flexible on small screens */
+            }
+        }
+
+        #topItemsCarousel .slide-content {
+            height: 100%;
+            overflow-y: auto; /* Enable scrolling if content is taller than the slide */
+        }
+
         /*DASHBOARD PAGE*/
         .vibe-background{
-            height: 45vh;   /*to be changed*/
-            width: 50vw;    /*to be changed*/
+            height: 50vh;
             text-align: center;
         }
 
@@ -30,7 +50,7 @@
         }
 
         .vibe-loaded{
-            background-image: url("{% static 'dashboard/gradient.gif' %}");
+            background-image: url("{% static 'dashboard/gradient_rev.gif' %}");
             background-size: cover;
         }
 
@@ -47,26 +67,190 @@
             margin: 20px auto;
             box-shadow: 2px 2px 12px rgba(0,0,0,0.2);
         }
+
+        .vibe-history-table {
+            border: 0.25px solid gainsboro;
+        }
+
+        .mood-happy { background-color: #FF5733 !important; }
+        .mood-sad { background-color: #3498DB !important; }
+        .mood-energetic { background-color: #F39C12 !important; }
+        .mood-calm { background-color: #2ECC71 !important; }
+        .mood-anxious { background-color: #9B59B6 !important; }
+        .mood-cheerful { background-color: #F1C40F !important; }
+        .mood-gloomy { background-color: #16A085 !important; }
+        .mood-content { background-color: #F39C12 !important; }
+        .mood-none { background-color: black; }
+
+        .vibe-history-cell {
+            margin: 2px;
+            width: 20px; /* Adjust as needed */
+            height: 20px; /* Adjust as needed */
+            border-radius: 2px; /* Optional, for rounded corners */
+            display: inline-block; /* Aligns the cells correctly */
+        }
+
+
+        #vibe-status {
+    transition: transform 0.3s ease-in-out;
+    transform-origin: center center; /* Adjust as needed */
+}
+
+
+
+#vibe-status + .col-6 {
+    margin-top: 0;
+}
+
+.decomposition-section {
+    background-color: #1A1A1A;
+    color: #FFFFFF;
+    padding: 20px 0;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 50px;
+}
+
+.decomposition-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: #F1F1F1;
+    text-align: center; /* Center the title for emphasis */
+}
+
+.custom-container {
+    border-radius: 15px;
+    padding: 20px;
+    margin: 10px auto;
+    height: 50vh; /* Set a fixed height to match the vibe-background */
+    overflow-y: auto; /* Make the content scrollable */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Align content to the top */
+    position: relative;
+    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+
+}
+
+.custom-container h2, .custom-container h3, .custom-container p {
+    margin-top: 0;
+}
+
+.reveal-prompt {
+    font-size: clamp(18px, 2.5vw, 22px);
+    color: floralwhite;
+    text-align: center;
+    margin-bottom: 20px;
+    /* cursor: pointer; Remove if not clickable */
+}
+
+
+.description {
+    font-size: clamp(14px, 2vw, 16px);
+    color: #E5E5EA;
+    text-align: justify;
+    line-height: 1.6;
+    /* Removed transform property since the content is now scrollable */
+    display: block; /* Always show the description */
+}
+
+@media (max-width: 768px) {
+    .vibe-background, .custom-container {
+        height: auto; /* On mobile, allow the height to be automatic */
+        max-height: 100vh; /* Maximum height to ensure it is within the device's viewport */
+        overflow-y: auto; /* Enable scrolling for overflow content */
+        margin-bottom: 0.5rem; /* Adjusted bottom margin for spacing */
+    }
+
+    .custom-container {
+        /* Adjust padding as needed for mobile viewing */
+        padding: 15px;
+    }
+
+    .reveal-prompt {
+        /* Adjust font size for better readability on small screens */
+        font-size: 18px;
+    }
+
+    .description {
+        /* Ensure text is not too small on mobile devices */
+        font-size: 14px;
+    }
+
+     .navbar {
+        padding: 10px 15px; /* Adjust padding */
+    }
+    .nav-link, .navbar-brand {
+        font-size: smaller;
+}
+    }
+
+
         /*DASHBOARD PAGE END*/
+.navbar {
+    background-color: #1A1A1A; /* A darker shade for a sleek look */
+    font-family: 'Inter', sans-serif;
+    transition: background-color 0.3s ease; /* Smooth transition for background color */
+}
 
-        .navbar {
-            background-color: #000000;
-            border-bottom: 1px solid #ffffff;
-            font-family: 'Inter', sans-serif;
-        }
+.navbar:hover {
+    background-color: #2D2D2D; /* Slightly lighter on hover for interactive feel */
+}
 
-        .navbar-brand {
-            font-family: 'Maven Pro', sans-serif;
-            font-size: x-large;
-        }
+.navbar-brand {
+    color: #F1F1F1; /* Light color for brand for better visibility */
+    transition: color 0.3s ease; /* Smooth transition for color */
+}
 
-        .navbar-toggler{
-            border: none;
-        }
 
-        .navbar-toggler:focus, .navbar-toggler:active {
-            box-shadow: none; 
-        }
+.nav-link, .navbar-toggler {
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.nav-link:hover, .navbar-toggler:hover {
+    transform: scale(1.1);
+    color: #E0E0E0; /* Lighter shade for hover */
+}
+
+.navbar-brand:hover {
+    color: #E1E1E1; /* Slightly change color on hover for interactive feel */
+}
+
+.navbar-toggler {
+    border: none;
+    color: #F1F1F1; /* Set color for the toggler icon */
+}
+
+.navbar-toggler:focus, .navbar-toggler:active {
+    box-shadow: none;
+    outline: none; /* Remove outline on focus for a cleaner look */
+}
+
+/* Additional style for navbar items */
+.nav-item {
+    transition: transform 0.3s ease; /* Smooth transition for hover effect */
+}
+
+.nav-item:hover {
+    transform: scale(1.05); /* Slightly scale up navbar items on hover */
+}
+
+.nav-link {
+    color: #F1F1F1; /* Color for navbar links */
+    transition: color 0.3s ease; /* Smooth transition for color */
+}
+
+.nav-link:hover {
+    color: #E1E1E1; /* Slightly lighter color on hover for links */
+}
+
+/* Style for active nav item */
+.nav-item.active .nav-link {
+    color: #C1C1C1; /* Different color for active nav link */
+}
+
 
     </style>
     
@@ -85,18 +269,13 @@
                       <a class="nav-link {% if request.path == '/dashboard/' %}active{% endif %}" href="{% url 'dashboard:index' %}">Dashboard</a>
                     </li>
                     <li class="nav-item">
-                      <a class="nav-link" href="#">Friends</a>
+                            <a class="nav-link" href="{% url 'vibematch:vibe_match'%}">VibeMatch</a>
                     </li>
                     <li class="nav-item">
-                      <a class="nav-link" href="#">Chatrooms</a>
+                            <a class="nav-link" href="{% url 'chatroom:open_chatroom'%}">Chatrooms</a>
                     </li>
                     <li class="nav-item">
-                      <a class="nav-link" href="#">Search</a>
-                      <!-- <i class="bi bi-search"></i>
-                      <div class="input-group mb-3 ">
-                        <span class="input-group-text" id="basic-addon1">@</span>
-                        <input type="text" class="form-control" placeholder="Username" aria-label="Username" aria-describedby="basic-addon1">
-                      </div> -->
+                      <a class="nav-link" href="{% url 'search:search_page'%}">Search</a>
                     </li>
                   </ul>
                   <ul class="navbar-nav ms-auto">
