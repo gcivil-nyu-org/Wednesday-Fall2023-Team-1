@@ -4,49 +4,115 @@
 {% block body_class %}background{% endblock %}
 
 {% block content%}
-    <div class="user-profile container-fluid col-md-8 ">
-        <h1>User Profile</h1>
-        
-        <div class="img-container container col-md-4 rounded-circle">
-            {% if user.profile_image_url %}
-                <img src="{{ user.profile_image_url }}" class="img-fluid rounded-circle mx-auto d-block" alt="User Image">
-            {% else %}
-                <img src="{% static 'user_profile/blank_user_profile_image.jpeg' %}" class="img-fluid rounded-circle mx-auto d-block" alt="Default Image">
-            {% endif %}
+    <div class="user-profile container-fluid col-md-8 p-5">
+        <div class="row">
+            <!-- Profile Picture -->
+            <div class="col-md-4">
+                <div class="img-container rounded-circle">
+                    {% if user.profile_image_url %}
+                        <img src="{{ user.profile_image_url }}" class="img-fluid rounded-circle mx-auto d-block" alt="User Image" width="200" height="200">
+                    {% else %}
+                        <img src="{% static 'user_profile/blank_user_profile_image.jpeg' %}" class="img-fluid rounded-circle mx-auto d-block" alt="Default Image" width="200" height="200">
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- User Content -->
+            <div class="col-md-7">
+                <h1>{{ user.username }}</h1>
+                <p>{{ user.total_followers}} Followers{% if user.user_country %} · {{ user.user_country }}{% endif %}{% if user.user_city %} · {{ user.user_city }}{% endif %}</p>
+
+                {% if user.user_bio %}
+                <p><i>{{ user.user_bio }}</i></p>    
+                {% endif %}
+            </div>
+
+            <!-- Edit -->
+            <div class="col-md-1">
+                <form action="{% url 'user_profile:edit' %}" method="post">
+                    {% csrf_token %}
+                    <div >
+                      <button class="btn btn-dark default-btn" type="submit"><i class="bi bi-gear-wide-connected"></i> Edit</button>
+                    </div>
+                    <input type="hidden" name="user_id" value="{{ user.user_id }}">
+                  </form>
+            </div>
         </div>
 
-        <div class="user-details container">
-            <p>Username: {{ user.username }}</p>
-            <p>Total Followers: {{ user.total_followers}}</p>
-            <p>Current Vibe: {{ vibe.user_audio_vibe }} {% if vibe.user_lyrics_vibe %}{{ vibe.user_lyrics_vibe }}{% endif %}</p>
-            
-            {% if user.user_country %}
-            <p>Country: {{ user.user_country }}</p>    
-            {% else %}
-            <p>Country: Not Specified</p>    
-            {% endif %}
-            
-            {% if user.user_bio %}
-            <p>Bio:<br> {{ user.user_bio }}</p>    
-            {% else %}
-            <p>Bio:<br> Not Available</p>    
-            {% endif %}
-        
-            {% if user.user_city %}
-            <p>City:<br> {{ user.user_city }}</p>    
-            {% else %}
-            <p>User City:<br> Not Available</p>    
-            {% endif %}
+        <br>
 
+        <h3>Vibing to...</h3>
+        {% if track %}
+        <div class="row">
+            <div class="col-md-11" style="border: 1px solid #000; border-radius: 0; background: black;">
+                <div>
+                    <img src="{{ track.album.images.0.url }}" class="d-block mx-auto img-fluid" alt="Album Image" style="max-width: 250px; max-height: 250px;">
+                </div>
+                <br>
+                <div class="text-center">
+                    <h5 style="margin-bottom: 1rem;">{{ track.name }}</h5>
+                    <p>
+                        {% for artist in track.artists %}
+                        {{ artist.name }}
+                        {% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </p>
+                    <p>{{ track.album.release_date }}</p>
+                </div>
+            </div>
+            <div class="col-md-1">
+                <form method="post" action="{% url 'user_profile:changeTrack' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ user.user_id }}">
+
+                    <button class="btn btn-dark default-btn" type="submit" name="action" value="remove">x</button>
+                </form>
+            </div>
         </div>
+        {% endif %}
 
-        <form class="col-sm-6" action="{% url 'user_profile:update_profile' user.user_id %}" method="post">
-          {% csrf_token %}
-          <div >
-            <button type="submit"><i class="bi bi-gear-wide-connected"></i>Edit</button>
-          </div>
-        </form>
-        
+        <br>
+
+        <div class="row">
+            <div>
+                <p>Listening to something?</p>
+                <form method="get" action="{% url 'user_profile:search' %}">
+                    {% for field in SearchForm %}
+                        <div class="form-field" style="display: inline-block;">
+                            <label for="{{ field.id_for_label }}">{{ field.label_tag }}</label>
+                            {{ field }}
+                        </div>
+                    {% endfor %}
+                
+                    <button class="btn btn-dark default-btn" type="submit">Search</button>
+                </form>
+                {% if results %}
+                    <br>
+
+                    <div class="container">
+                        {% for track in results %}
+                            <div class="row mb-2">
+                                <div class="col-md-1 mb-2 mb-md-0">
+                                    <img src="{{ track.image }}" alt="Track Image" class="img-fluid">
+                                </div>
+                                <div class="col-md-9">
+                                    <p><strong>{{ track.name }}</strong> ({{ track.release_date }}) by {{ track.artists }}</p>
+                                </div>
+                                <div class="col-md-2">
+                                    <form method="post" action="{% url 'user_profile:changeTrack' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="user_id" value="{{ user.user_id }}">
+                                        <input type="hidden" name="track_id" value="{{ track.id }}">
+                    
+                                        <button class="btn btn-dark default-btn" type="submit" name="action" value="add">+</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
 {% endblock %}

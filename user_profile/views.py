@@ -2,11 +2,11 @@ from django.shortcuts import render, redirect
 
 # from django.contrib.auth.decorators import login_required
 from dotenv import load_dotenv
-import spotipy
-from utils import get_spotify_token
-from django.utils import timezone
-from .models import User, Vibe
+from .models import User
 from django.contrib import messages
+from .forms import SearchForm
+from utils import get_spotify_token
+import spotipy
 
 # Load variables from .env
 load_dotenv()
@@ -15,95 +15,178 @@ load_dotenv()
 
 
 def check_and_store_profile(request):
-    token_info = get_spotify_token(request)
+    # Check if the user is authenticated
+    if request.user.is_authenticated:
+        user = request.user
+        form = SearchForm()
 
-    if token_info:
-        sp = spotipy.Spotify(auth=token_info["access_token"])
-
-        time = timezone.now()
-
-        user_info = sp.current_user()
-        user_id = user_info["id"]
-        # Pass username to navbar
-        username = user_info["display_name"]
-        user_exists = User.objects.filter(user_id=user_id).first()
-
-        if not user_exists:
-            user = User(
-                user_id=user_id,
-                username=user_info["display_name"],
-                total_followers=user_info["followers"]["total"],
-                profile_image_url=(
-                    user_info["images"][0]["url"]
-                    if ("images" in user_info and user_info["images"])
-                    else None
-                ),
-                user_country=user_info["country"],
-                user_last_login=time,
-            )
-            user.save()
+        token_info = get_spotify_token(request)
+        if token_info:
+            sp = spotipy.Spotify(auth=token_info["access_token"])
         else:
-            user = user_exists
+            sp = None
 
-            if user.username != user_info["display_name"]:
-                user.username = user_info["display_name"]
-            if user.total_followers != user_info["followers"]["total"]:
-                user.total_followers = user_info["followers"]["total"]
-            new_profile_image_url = (
-                user_info["images"][1]["url"]
-                if ("images" in user_info and len(user_info["images"]) > 1)
-                else None
-            )
-            if user.profile_image_url != new_profile_image_url:
-                user.profile_image_url = new_profile_image_url
-            if user.user_country != user_info["country"]:
-                user.user_country = user_info["country"]
-
-            user.user_last_login = time
-            user.save()
-
-        # Get user's most recent vibe, order by descending time
-        recent_vibe = (
-            Vibe.objects.filter(user_id=user_id).order_by("-vibe_time").first()
-        )
+        if user.track_id is not None and sp is not None:
+            track = sp.track(user.track_id)
+        else:
+            track = None
 
         context = {
-            "username": username,
+            "username": user.username,
             "user": user,
-            "vibe": recent_vibe,
             "default_image_path": "user_profile/blank_user_profile_image.jpeg",
+            "SearchForm": form,
+            "track": track,
         }
         return render(request, "user_profile/user_profile.html", context)
     else:
         # No token, redirect to login again
+        print("User Missing!!!!!")
         messages.error(
-            request, "Check_and_store_profile failed, please try again later."
+            request,
+            "Check_and_store_profile failed, please try again later. User unavailable.",
         )
         return redirect("login:index")
 
 
-def update_user_profile(request, user_id):
-    user = User.objects.filter(user_id=user_id).first()
-    # Pass username to navbar
-    context = {
-        "username": user.username,
-        "user": user,
-    }
-    return render(request, "user_profile/update_profile.html", context)
-
-
-# Updates the profile return to User_profile Page
-def update(request, user_id):
-    user = User.objects.filter(user_id=user_id).first()
-
+def edit(request):
     if request.method == "POST":
-        print("Data is changed")
-        bio = request.POST.get("user_bio")
-        city = request.POST.get("user_city")
-        if city:
-            user.user_city = city
-        if bio != user.user_bio:
-            user.user_bio = bio
-        user.save()
+        user_id = request.POST.get("user_id", None)
 
-    return redirect("user_profile:profile_page")
+        if user_id is not None:
+            user = User.objects.filter(user_id=user_id).first()
+
+            if not user:
+                # User doesnt exist in database?
+                messages.error(
+                    request,
+                    "Edit profile failed, please try again later. User unavailable.",
+                )
+                return redirect("login:index")
+
+            context = {
+                "username": user.username,
+                "user": user,
+            }
+            return render(request, "user_profile/update_profile.html", context)
+
+    messages.error(request, "Edit profile failed, please try again later.")
+    return redirect("login:index")
+
+
+def update(request):
+    if request.method == "POST":
+        user_id = request.POST.get("user_id", None)
+
+        if user_id is not None:
+            user = User.objects.filter(user_id=user_id).first()
+
+            if not user:
+                # User doesnt exist in database?
+                messages.error(
+                    request,
+                    "Update profile failed, please try again later. User unavailable.",
+                )
+                return redirect("login:index")
+
+            bio = request.POST.get("user_bio", None)
+            city = request.POST.get("user_city", None)
+
+            if city:
+                user.user_city = city
+            if bio != user.user_bio:
+                user.user_bio = bio
+            user.save()
+
+            return redirect("user_profile:profile_page")
+
+    messages.error(request, "Edit profile failed, please try again later.")
+    return redirect("login:index")
+
+
+def search(request):
+    # Check if the user is authenticated
+    if request.user.is_authenticated:
+        user = request.user
+        token_info = get_spotify_token(request)
+        if token_info:
+            sp = spotipy.Spotify(auth=token_info["access_token"])
+
+            if request.method == "GET":
+                form = SearchForm(request.GET)
+
+                if form.is_valid():
+                    search_query = form.cleaned_data["search_query"]
+                    results = []
+                    track_results = sp.search(q=search_query, type="track", limit=10)
+                    for track in track_results["tracks"]["items"]:
+                        track_info = {
+                            "id": track["id"],
+                            "name": track["name"],
+                            "artists": ", ".join(
+                                [artist["name"] for artist in track["artists"]]
+                            ),
+                            "album": track["album"]["name"],
+                            "image": track["album"]["images"][0]["url"],
+                            "release_date": track["album"]["release_date"],
+                        }
+                        results.append(track_info)
+
+                else:
+                    results = None
+
+            else:
+                form = SearchForm()
+                results = None
+
+            if user.track_id is not None and sp is not None:
+                track = sp.track(user.track_id)
+            else:
+                track = None
+
+            context = {
+                "username": user.username,
+                "user": user,
+                "default_image_path": "user_profile/blank_user_profile_image.jpeg",
+                "SearchForm": form,
+                "results": results,
+                "track": track,
+            }
+            return render(request, "user_profile/user_profile.html", context)
+
+    messages.error(
+        request,
+        "Profile track search failed, please try again later.",
+    )
+    return redirect("login:index")
+
+
+def changeTrack(request):
+    if request.method == "POST":
+        user_id = request.POST.get("user_id", None)
+        action = request.POST.get("action", None)
+
+        if user_id is not None and action is not None:
+            user = User.objects.filter(user_id=user_id).first()
+            if not user:
+                # User doesnt exist in database?
+                messages.error(
+                    request,
+                    "Changing track failed, please try again later. User unavailable.",
+                )
+                return redirect("login:index")
+
+            if action == "remove":
+                user.track_id = None
+                user.save()
+
+            elif action == "add":
+                track_id = request.POST.get("track_id", None)
+                if track_id:
+                    user.track_id = track_id
+                    user.save()
+
+            return redirect("user_profile:profile_page")
+
+    messages.error(request, "Change track failed, please try again later.")
+    return redirect("dashboard:index")

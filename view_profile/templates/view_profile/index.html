@@ -48,6 +48,34 @@
                 <br>
 
                 <div class="row">
+                    <div>
+                        <h4>
+                            Vibing to...
+                        </h4>
+                        {% if info.user.fav_track %}
+                        <div style="border: 1px solid #000; border-radius: 0; background: black;">
+                            <div>
+                                <img src="{{ info.user.fav_track.album.images.0.url }}" class="d-block mx-auto img-fluid" alt="Album Image" style="max-width: 250px; max-height: 250px;">
+                            </div>
+                            <br>
+                            <div class="text-center">
+                                <h5 style="margin-bottom: 1rem;">{{ info.user.fav_track.name }}</h5>
+                                <p>
+                                    {% for artist in info.user.fav_track.artists %}
+                                    {{ artist.name }}
+                                    {% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </p>
+                                <p>{{ info.user.fav_track.album.release_date }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <br>
+
+                <div class="row">
                     <div class="col-md-6">
                         <h4>
                             Acousticness
@@ -80,6 +108,7 @@
                             Recent Tracks
                         </h4>
                         
+                        {% if info.user.recent_tracks%}
                         <div id="recentTracksCarousel" class="carousel slide mt-4 w-100" data-bs-ride="carousel" data-bs-touch="true">
                             <!-- Buttons for navigation -->
                             <div class="carousel-indicators">
@@ -113,6 +142,7 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                     <br>
@@ -122,6 +152,7 @@
                             Top Tracks
                         </h4>
                         
+                        {% if info.user.top_tracks%}
                         <div id="topTracksCarousel" class="carousel slide mt-4 w-100" data-bs-ride="carousel" data-bs-touch="true">
                             <!-- Buttons for navigation -->
                             <div class="carousel-indicators">
@@ -155,6 +186,7 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                 </div>
@@ -167,6 +199,7 @@
                             Top Artists
                         </h4>
                         
+                        {% if info.user.top_artists%}
                         <div id="topArtistsCarousel" class="carousel slide mt-4 w-100" data-bs-ride="carousel" data-bs-touch="true">
                             <!-- Buttons for navigation -->
                             <div class="carousel-indicators">
@@ -197,6 +230,7 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                     <br>
@@ -206,6 +240,7 @@
                             Top Genres
                         </h4>
 
+                        {% if info.user.top_genres%}
                         <br>
 
                         <div style="border: 1px solid #000; border-radius: 0; background: black;">
@@ -215,6 +250,7 @@
                                 </div>
                             {% endfor %}
                         </div>
+                        {% endif %}
                     </div>
 
                 </div>
@@ -249,6 +285,7 @@
                         <div class="button-container">
                             <form method="post" action="{% url 'view_profile:process_fr' %}">
                                 {% csrf_token %}
+                                <input type="hidden" name="user_id" value="{{ user.user_id }}">
                                 <input type="hidden" name="where_from" value="view_profile">
                                 <input type="hidden" name="other_user_id" value="{{other_user.user_id}}">
 
@@ -278,6 +315,34 @@
                         </h4>
                         
                         <p> {{ info.other.recent_vibe.user_audio_vibe }} {% if info.other.recent_vibe.user_lyrics_vibe %}{{ info.other.recent_vibe.user_lyrics_vibe }}{% endif %} </p>
+                    </div>
+                </div>
+
+                <br>
+
+                <div class="row">
+                    <div>
+                        <h4>
+                            Vibing to...
+                        </h4>
+                        {% if info.other.fav_track %}
+                        <div style="border: 1px solid #000; border-radius: 0; background: black;">
+                            <div>
+                                <img src="{{ info.other.fav_track.album.images.0.url }}" class="d-block mx-auto img-fluid" alt="Album Image" style="max-width: 250px; max-height: 250px;">
+                            </div>
+                            <br>
+                            <div class="text-center">
+                                <h5 style="margin-bottom: 1rem;">{{ info.other.fav_track.name }}</h5>
+                                <p>
+                                    {% for artist in info.other.fav_track.artists %}
+                                    {{ artist.name }}
+                                    {% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </p>
+                                <p>{{ info.other.fav_track.album.release_date }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -316,6 +381,7 @@
                             Recent Tracks
                         </h4>
                         
+                        {% if info.other.recent_tracks%}
                         <div id="other_recentTracksCarousel" class="carousel slide mt-4 w-100" data-bs-ride="carousel" data-bs-touch="true">
                             <!-- Buttons for navigation -->
                             <div class="carousel-indicators">
@@ -349,6 +415,7 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                     <br>
@@ -358,6 +425,7 @@
                             Top Tracks
                         </h4>
                         
+                        {% if info.other.top_tracks%}
                         <div id="other_topTracksCarousel" class="carousel slide mt-4 w-100" data-bs-ride="carousel" data-bs-touch="true">
                             <!-- Buttons for navigation -->
                             <div class="carousel-indicators">
@@ -391,6 +459,7 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                 </div>
@@ -403,6 +472,7 @@
                             Top Artists
                         </h4>
                         
+                        {% if info.other.top_artists%}
                         <div id="other_topArtistsCarousel" class="carousel slide mt-4 w-100" data-bs-ride="carousel" data-bs-touch="true">
                             <!-- Buttons for navigation -->
                             <div class="carousel-indicators">
@@ -433,6 +503,7 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                     <br>
@@ -442,6 +513,7 @@
                             Top Genres
                         </h4>
 
+                        {% if info.other.top_genres%}
                         <br>
                         
                         <div style="border: 1px solid #000; border-radius: 0; background: black;">
@@ -451,6 +523,7 @@
                                 </div>
                             {% endfor %}
                         </div>
+                        {% endif %}
                     </div>
 
                 </div>
