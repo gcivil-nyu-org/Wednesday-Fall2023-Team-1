@@ -27,17 +27,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = "0%mn4bp$ofc*%rt)vo)1s!0=@e#$@ni^sa$okg2e1aw59j*skz"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = [
-    "*",
-]
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    "daphne",
+    # "daphne",
     "login",
     # "dashboard",
     "dashboard.apps.DashboardConfig",
@@ -54,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -65,6 +64,11 @@ MIDDLEWARE = [
     "vibecheck.middleware.UserProfileMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+]
+CORS_ALLOWED_ORIGINS = [
+    "https://accounts.spotify.com",  # Spotify API domain  # Elastic Beanstalk domain
+    "https://vcheck.eba-xfip9tve.us-west-2.elasticbeanstalk.com"
 ]
 
 ROOT_URLCONF = "vibecheck.urls"
@@ -95,18 +99,18 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            # "hosts": [("redis-server.ki72ah.ng.0001.use1.cache.amazonaws.com", 6379)],
-            "hosts": [("127.0.0.1", 6579)],
+            "hosts": [("vibecheck-redis.wcuycs.ng.0001.usw2.cache.amazonaws.com", 6379)],
+            # "hosts": [("127.0.0.1", 6579)],
         },
     },
 }
 
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-#         "LOCATION": "redis://redis-server.ki72ah.ng.0001.use1.cache.amazonaws.com:6379/1",
-#     }
-# }
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://vibecheck-redis.wcuycs.ng.0001.usw2.cache.amazonaws.com:6379/1",
+    }
+}
 
 
 # Database
@@ -120,7 +124,7 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD"),
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT"),
-    }
+    },
 }
 
 

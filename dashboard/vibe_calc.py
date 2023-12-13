@@ -1,5 +1,5 @@
 from django.utils import timezone
-from utils import deduce_audio_vibe, vibe_calc_threads
+from utils import vibe_calc_threads
 import lyricsgenius
 import os
 import openai
@@ -9,6 +9,9 @@ import numpy as np
 import re
 from dashboard.models import TrackVibe, EmotionVector
 from user_profile.models import Vibe
+import pandas as pd
+from collections import Counter
+from django.apps import apps
 
 MAX_RETRIES = 2
 
@@ -26,7 +29,13 @@ def calculate_vibe_async(
         vibe_result += " " + lyric_vibe
 
     current_time = timezone.now().astimezone(timezone.utc)
-    description = vibe_description(vibe_result)
+
+    if len(track_artists) > 1:
+        artist_string = ",".join(track_artists)
+    else:
+        artist_string = track_artists[0]
+    description = vibe_description(vibe_result, artist_string)
+
     vibe_data = Vibe(
         user_id=user_id,
         vibe_time=current_time,
@@ -46,65 +55,152 @@ def calculate_vibe_async(
 
 
 def check_vibe(track_names, track_artists, track_ids, audio_features_list):
-    # Calculate the overall audio vibe for the list of tracks
-    audio_final_vibe = deduce_audio_vibe(audio_features_list)
-
     # Fetch existing vibes from the database
     existing_vibes = TrackVibe.objects.filter(track_id__in=track_ids)
     existing_vibes_dict = {vibe.track_id: vibe for vibe in existing_vibes}
 
-    # Determine tracks that need processing for lyrics vibes
+    # Ids and features of new tracks that need audio analysis
+    track_needing_audio = []
+    # Audio vibes of old tracks that had analysis already
+    track_has_audio = []
+
+    # Ids of new tracks that need lyric analysis
     tracks_needing_lyrics = []
-    for track_name, track_artist, track_id in zip(
-        track_names, track_artists, track_ids
+    # Lyric vibes of old tracks that had analysis already
+    tracks_has_lyrics = []
+
+    for name, artist, track_id, audio_features in zip(
+        track_names, track_artists, track_ids, audio_features_list
     ):
         track_vibe = existing_vibes_dict.get(track_id)
-        if not track_vibe or track_vibe.track_lyrics_vibe is None:
-            tracks_needing_lyrics.append((track_name, track_artist, track_id))
+        if not track_vibe:
+            track_needing_audio.append((track_id, audio_features))
+            tracks_needing_lyrics.append((name, artist, track_id))
+        else:
+            track_has_audio.append(track_vibe.track_audio_vibe)
+            if track_vibe.track_lyrics_vibe is None:
+                tracks_needing_lyrics.append((name, artist, track_id))
+            else:
+                tracks_has_lyrics.append(track_vibe.track_lyrics_vibe)
 
-    # Process lyrics vibes if needed
-    if tracks_needing_lyrics:
-        names, artists, ids = zip(*tracks_needing_lyrics)
-        lyrics_vibes = deduce_lyrics(names, artists, ids)
-        lyrics_final_vibe = lyrics_vectorize(lyrics_vibes)
-    else:
-        lyrics_final_vibe = None
+    # Audio vibe analysis for tracks that need it, also saves track audio vibes into database
+    audio_vibes_new = (
+        deduce_audio_vibe(*zip(*track_needing_audio)) if track_needing_audio else []
+    )
+    # Get final audio vibe with new audio vibes and audio vibes already in database
+    audio_final_vibe = get_most_count(audio_vibes_new + track_has_audio)
 
-    # Update the database with the newly computed vibes
-    for index, track_id in enumerate(track_ids):
-        track_vibe = existing_vibes_dict.get(track_id, TrackVibe(track_id=track_id))
-
-        # Update lyrics vibe if needed
-        if track_id in [id for _, _, id in tracks_needing_lyrics]:
-            track_vibe.track_lyrics_vibe = lyrics_final_vibe
-
-        # Update audio vibe for each track, doesn't matter if it was already in the database
-        track_vibe.track_audio_vibe = deduce_audio_vibe([audio_features_list[index]])
-
-        track_vibe.save()
+    # Lyric vibe analysis for tracks that need it, also saves track lyric vibes into database
+    names, artists, ids = zip(*tracks_needing_lyrics)
+    lyrics_vibes_new = (
+        deduce_lyrics(names, artists, ids) if tracks_needing_lyrics else []
+    )
+    # Get final lyric vibe with new lyric vibes and lyric vibes already in database
+    lyrics_final_vibe = lyrics_vectorize(lyrics_vibes_new + tracks_has_lyrics)
 
     return audio_final_vibe, lyrics_final_vibe
 
 
+def deduce_audio_vibe(track_ids, audio_features_list):
+    # Create a DataFrame from the list of audio features dictionaries
+    spotify_data = pd.DataFrame(audio_features_list)
+
+    # Rename 'duration_ms' to 'length' and normalize by dividing by the maximum value
+    spotify_data.rename(columns={"duration_ms": "length"}, inplace=True)
+    if not spotify_data["length"].empty:
+        max_length = spotify_data["length"].max()
+        spotify_data["length"] = spotify_data["length"] / max_length
+
+    # Reorder columns based on the model's expectations
+    ordered_features = [
+        "length",
+        "danceability",
+        "acousticness",
+        "energy",
+        "instrumentalness",
+        "liveness",
+        "valence",
+        "loudness",
+        "speechiness",
+        "tempo",
+        "key",
+        "time_signature",
+    ]
+
+    # Ensure the DataFrame has all the required columns in the correct order
+    spotify_data = spotify_data[ordered_features]
+
+    # Predict the moods using the model
+    model = apps.get_app_config("dashboard").model
+    pred = model.predict(spotify_data)
+
+    # Define the mood dictionary
+    mood_dict = {
+        0: "happy",
+        1: "sad",
+        2: "energetic",
+        3: "calm",
+        4: "anxious",
+        5: "cheerful",
+        6: "gloomy",
+        7: "content",
+    }
+
+    audio_vibes = []
+
+    # Save track audio into database
+    for track_id, prediction in zip(track_ids, pred):
+        mood = mood_dict[prediction]
+
+        existing = TrackVibe.objects.filter(track_id=track_id).first()
+        if not existing:
+            track_data = TrackVibe(
+                track_id=track_id,
+                track_audio_vibe=mood,
+            )
+            track_data.save()
+
+        audio_vibes.append(mood)
+
+    return audio_vibes
+
+
+def get_most_count(vibes):
+    # Returns the most commonly appeared word in a list of words
+
+    vibe_counts = Counter(vibes)
+    most_common_vibe = vibe_counts.most_common(1)[0][0]
+    return most_common_vibe
+
+
 def deduce_lyrics(track_names, track_artists, track_ids):
     genius = lyricsgenius.Genius(os.getenv("GENIUS_CLIENT_ACCESS_TOKEN"))
+    genius.timeout = 15
 
     lyrics_vibes = []
 
-    # CHECK TRACK DATABASE BASED ON ID, ADD TRACK VIBE TO LYRICS_VIBES IF ALREADY IN DATABASE!!!
-
     lyrics_data = {}
     for track, artist, id in zip(track_names, track_artists, track_ids):
-        # SKIP TRACKS ALRDY IN DATABASE!!!
-        query = f'"{track}" "{artist}"'
-        song = genius.search_song(query)
-        if song:
-            # Genius song object sometimes has trailing space, so need to strip
-            geniusTitle = song.title.lower().replace("\u200b", " ").strip()
-            geniusArtist = song.artist.lower().replace("\u200b", " ").strip()
-            if geniusTitle == track.lower() and geniusArtist == artist.lower():
-                print("Inputting lyrics..")
-                lyrics_data[(track, artist, id)] = song.lyrics
+        genius_retries = 0
+        while genius_retries < MAX_RETRIES:
+            try:
+                query = f'"{track}" "{artist}"'
+                song = genius.search_song(query)
+
+            except Exception as e:
+                print(f"Error getting genius for {track}: {e}")
+                genius_retries += 1
+                continue
+
+            if song is not None:
+                # Genius song object sometimes has trailing space, so need to strip
+                geniusTitle = song.title.lower().replace("\u200b", " ").strip()
+                geniusArtist = song.artist.lower().replace("\u200b", " ").strip()
+                if geniusTitle == track.lower() and geniusArtist == artist.lower():
+                    print("Inputting lyrics..")
+                    lyrics_data[(track, artist, id)] = song.lyrics
+
+            break
 
     openai.api_key = os.getenv("OPEN_AI_TOKEN")
 
@@ -130,8 +226,12 @@ def deduce_lyrics(track_names, track_artists, track_ids):
                 checkLength = vibe.split()
                 if len(checkLength) == 1:
                     lyrics_vibes.append(vibe.lower())
+                    track_entry = TrackVibe.objects.filter(track_id=id).first()
+                    if track_entry:
+                        # track_entry should always exist since we did audio analysis first!
+                        track_entry.track_lyrics_vibe = vibe.lower()
+                        track_entry.save()
 
-                    # INSERT VIBE HERE INTO TRACK DATABASE!!!!!
                 print(f"The vibe for {track} is: {vibe}")
 
                 break
@@ -250,7 +350,13 @@ def get_emotion_vector(input_emotion):
     if not vector_str:
         # We should always get vector string stored in our database,
         # but if somehow is not in database..
-        vector_str = client.predict("get_vector", input_emotion, api_name="/predict")
+        try:
+            vector_str = client.predict(
+                "get_vector", input_emotion, api_name="/predict"
+            )
+        except Exception:
+            return np.zeros(300)
+
     else:
         vector_str = vector_str.vector
 
@@ -261,7 +367,7 @@ def cosine_similarity(vec_a, vec_b):
     return np.dot(vec_a, vec_b) / (np.linalg.norm(vec_a) * np.linalg.norm(vec_b))
 
 
-def vibe_description(final_vibe):
+def vibe_description(final_vibe, artist_string):
     openai.api_key = os.getenv("OPEN_AI_TOKEN")
 
     try:
@@ -271,11 +377,11 @@ def vibe_description(final_vibe):
                 {"role": "system", "content": "You are a helpful assistant."},
                 {
                     "role": "user",
-                    "content": f"This is the output of a program that takes listening history of a person (spotify "
-                    f"features) and their lyrics and classifies a daily final vibe. Take the daily final vibe, "
-                    f"this being: '{final_vibe}', and briefly describe today's person music vibe and energy as "
-                    f"if you were talking to them. Use pop culture terms, artists as references as be brief "
-                    f"but precise.",
+                    "content": f"This is the output of a program that takes Spotify listening history of a person "
+                    f"and their lyrics and classifies a daily vibe. Take the daily vibe, this being: '{final_vibe}', "
+                    f"and describe this person's music vibe and energy today as if you were talking to them. "
+                    f"We know this person listens to the following artists: '{artist_string}'. Only mention a few of the artists you actually have knowledge about. "
+                    f"Use pop culture terms and be brief but precise, under 185 words. Make sure to describe their daily vibe. ",
                 },
             ],
             request_timeout=50,

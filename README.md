@@ -4,7 +4,7 @@ This repository contains the codebase for our team project, which involves inter
 
 [![Build Status](https://app.travis-ci.com/gcivil-nyu-org/Wednesday-Fall2023-Team-1.svg?branch=develop)](https://app.travis-ci.com/gcivil-nyu-org/Wednesday-Fall2023-Team-1)
 
-[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/Wednesday-Fall2023-Team-1/badge.svg)](https://coveralls.io/github/gcivil-nyu-org/Wednesday-Fall2023-Team-1)
+[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/Wednesday-Fall2023-Team-1/badge.svg?branch=develop&kill_cache=1)](https://coveralls.io/github/gcivil-nyu-org/Wednesday-Fall2023-Team-1)
 
 ## Getting Started
 
@@ -17,7 +17,6 @@ Ensure you have Python and pip installed. The following packages are required:
 - `spotipy`: A lightweight Python library for the Spotify Web API.
 - `lyricsgenius`: A Python client for the Genius.com API.
 - `python-dotenv`: A Python module that allows you to specify environment variables in traditional UNIX-like `.env` files.
-- `plotly`: An interactive graphing library for Python
 - `openai`
 - `django-extensions`
 - `supabase`
@@ -27,11 +26,12 @@ Ensure you have Python and pip installed. The following packages are required:
 - `gradio_client`
 - `rich`
 - `channels`
+- `django-cors-headers`
 
 Install the prerequisites using pip:
 
 ```bash
-pip install django psycopg2_binary spotipy lyricsgenius python-dotenv plotly openai django-extensions supabase numpy joblib pandas gradio_client rich channels
+pip install django psycopg2_binary spotipy lyricsgenius python-dotenv openai django-extensions supabase numpy joblib pandas gradio_client rich channels django-cors-headers
 ```
 
 Install the Bootstrap-Icons using npm:
